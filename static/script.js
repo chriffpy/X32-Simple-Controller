@@ -15,6 +15,7 @@ function createChannelStrip(channel) {
     stripDiv.innerHTML = `
         <div class="channel-name">${channel.name}</div>
         <div class="fader-container">
+            <div class="marks"></div>
             <input type="range" class="fader" 
                    data-channel="${channel.id}"
                    min="0" max="1" step="0.01" value="0" 
@@ -50,7 +51,8 @@ function setupEventListeners() {
     document.querySelector('.master-fader').addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
         ws.send(JSON.stringify({
-            type: 'master',
+            type: 'fader',
+            channel: 'master',
             value: value
         }));
     });
@@ -72,7 +74,8 @@ function setupEventListeners() {
     document.querySelector('.master-mute').addEventListener('click', (e) => {
         const isMuted = e.target.classList.toggle('muted');
         ws.send(JSON.stringify({
-            type: 'master_mute',
+            type: 'mute',
+            channel: 'master',
             value: isMuted ? 0 : 1
         }));
     });
