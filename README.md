@@ -5,6 +5,8 @@ Eine benutzerfreundliche Weboberfläche zur Steuerung des Behringer X32 Digital-
 **Autor:** Christopher Gertig  
 **Erstellt:** Dezember 2024
 
+![IMG_0007](https://github.com/user-attachments/assets/c3ed7409-4a62-4ca0-af90-a0804512d937)
+
 ## Features
 
 - Intuitive Benutzeroberfläche für häufig genutzte Mixer-Funktionen
