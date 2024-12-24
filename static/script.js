@@ -51,8 +51,20 @@ function connectWebSocket() {
                 const fader = document.querySelector(`input[data-channel="${data.channel}"]`);
                 if (fader) {
                     fader.value = data.value;
+                    console.log(`Updated fader ${data.channel} to ${data.value}`);
                 }
                 
+                // Spezielle Behandlung für Master-Fader
+                if (data.channel === 'master') {
+                    const masterFader = document.querySelector('.master-fader');
+                    if (masterFader) {
+                        masterFader.value = data.value;
+                        console.log(`Updated master fader to ${data.value}`);
+                    }
+                }
+                
+                // Entferne die automatische Mute-Aktivierung bei Fader = 0
+                /*
                 // Update mute button state
                 if (data.channel !== 'master') {
                     const muteButton = document.querySelector(`button[data-channel="${data.channel}"]`);
@@ -65,6 +77,7 @@ function connectWebSocket() {
                         masterMute.classList.toggle('muted', data.value === 0);
                     }
                 }
+                */
             } else if (data.type === 'mute') {
                 // Update mute button state
                 const button = document.querySelector(`button[data-channel="${data.channel}"]`);
@@ -74,11 +87,11 @@ function connectWebSocket() {
                     document.querySelector('.master-mute').classList.toggle('muted', data.value === 0);
                 }
             } else if (data.type === 'meters') {
-                console.log('Meter data received:', data.left, data.right);
+                console.log('Meter data received:', data);
                 updateMeters(data.left, data.right);
             }
         } catch (e) {
-            console.error('Error processing message:', e);
+            console.error('Error processing message:', e, event.data);
         }
     };
 }
@@ -87,22 +100,43 @@ function connectWebSocket() {
 function updateMeters(leftDb, rightDb) {
     // Konvertiere dB in Prozent (0dB = 100%, -48dB = 0%)
     function dbToPercent(db) {
+        // Ensure db is a number and not -inf
+        db = parseFloat(db);
+        if (isNaN(db) || db === Number.NEGATIVE_INFINITY) {
+            return 0;
+        }
+        
         if (db <= -48) return 0;
         if (db >= 0) return 100;
         // Lineare Interpolation zwischen -48dB (0%) und 0dB (100%)
         return (db + 48) * (100 / 48);
     }
 
-    const leftMeter = document.querySelector('.left-meter');
-    const rightMeter = document.querySelector('.right-meter');
+    const leftMeter = document.querySelector('.meter-bar.left-meter');
+    const rightMeter = document.querySelector('.meter-bar.right-meter');
     
-    console.log('Updating meters:', leftDb, rightDb);
-    console.log('Meter elements:', leftMeter, rightMeter);
-    console.log('Calculated heights:', `${dbToPercent(leftDb)}%`, `${dbToPercent(rightDb)}%`);
-
     if (leftMeter && rightMeter) {
-        leftMeter.style.height = `${dbToPercent(leftDb)}%`;
-        rightMeter.style.height = `${dbToPercent(rightDb)}%`;
+        // Aktualisiere linken Meter
+        const updateMeter = (meter, db) => {
+            const height = dbToPercent(db);
+            meter.style.height = `${height}%`;
+            
+            // Entferne alte Klassen
+            meter.classList.remove('low', 'medium', 'high');
+            
+            // Füge neue Klasse basierend auf dB-Wert hinzu
+            if (db >= -6) {  // 0 bis -6 dB: Rot
+                meter.classList.add('high');
+            } else if (db >= -12) {  // -6 bis -12 dB: Gelb
+                meter.classList.add('medium');
+            } else {  // unter -12 dB: Grün
+                meter.classList.add('low');
+            }
+        };
+        
+        // Aktualisiere beide Meter
+        updateMeter(leftMeter, leftDb);
+        updateMeter(rightMeter, rightDb);
     } else {
         console.error('Meter elements not found!');
     }
@@ -142,50 +176,47 @@ function initializeChannels() {
 }
 
 function setupEventListeners() {
-    // Channel Faders
+    // Master fader
+    const masterFader = document.querySelector('.master-fader');
+    if (masterFader) {
+        masterFader.addEventListener('input', (e) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'fader',
+                    channel: 'master',
+                    value: parseFloat(e.target.value)
+                }));
+            }
+        });
+    }
+
+    // Channel faders
     document.querySelectorAll('.fader:not(.master-fader)').forEach(fader => {
         fader.addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
             const channel = e.target.dataset.channel;
-            ws.send(JSON.stringify({
-                type: 'fader',
-                channel: channel,
-                value: value
-            }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'fader',
+                    channel: channel,
+                    value: parseFloat(e.target.value)
+                }));
+            }
         });
     });
 
-    // Master Fader
-    document.querySelector('.master-fader').addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        ws.send(JSON.stringify({
-            type: 'fader',
-            channel: 'master',
-            value: value
-        }));
-    });
-
-    // Channel Mute Buttons
-    document.querySelectorAll('.mute-button:not(.master-mute)').forEach(button => {
+    // Mute buttons
+    document.querySelectorAll('.mute-button').forEach(button => {
         button.addEventListener('click', (e) => {
             const channel = e.target.dataset.channel;
             const isMuted = e.target.classList.toggle('muted');
-            ws.send(JSON.stringify({
-                type: 'mute',
-                channel: channel,
-                value: isMuted ? 0 : 1
-            }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'mute',
+                    channel: channel,
+                    value: isMuted ? 0 : 1
+                }));
+            }
         });
-    });
-
-    // Master Mute Button
-    document.querySelector('.master-mute').addEventListener('click', (e) => {
-        const isMuted = e.target.classList.toggle('muted');
-        ws.send(JSON.stringify({
-            type: 'mute',
-            channel: 'master',
-            value: isMuted ? 0 : 1
-        }));
     });
 
     document.getElementById('gongButton').addEventListener('click', async () => {

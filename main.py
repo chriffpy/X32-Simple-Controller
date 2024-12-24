@@ -21,7 +21,7 @@ import struct
 
 # Logging konfigurieren
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -36,11 +36,13 @@ async def broadcast_message(message: str):
     if not message:
         return
         
+    logger.debug(f"Broadcasting message to {len(connected_clients)} clients: {message}")
     # Convert to list to avoid modification during iteration
     clients = list(connected_clients)
     for client in clients:
         try:
             await client.send_text(message)
+            logger.debug(f"Message sent successfully to client")
         except Exception as e:
             logger.error(f"Error sending to client: {e}")
             if client in connected_clients:
@@ -51,6 +53,7 @@ async def process_queue():
         try:
             # Warte auf neue Nachrichten in der Queue
             message = await asyncio.get_event_loop().run_in_executor(None, update_queue.get)
+            logger.debug(f"Got message from queue: {message}")
             if message:
                 await broadcast_message(message)
         except Exception as e:
@@ -59,7 +62,9 @@ async def process_queue():
 
 @app.on_event("startup")
 async def startup_event():
+    # Start the queue processing task
     asyncio.create_task(process_queue())
+    logger.info("Started queue processing task")
 
 # Start broadcast worker thread
 # broadcast_thread = Thread(target=broadcast_worker, daemon=True)
@@ -111,6 +116,7 @@ class X32Dispatcher(dispatcher.Dispatcher):
         }
         
         # Put message in queue instead of direct send
+        logger.debug(f"Putting fader message in queue: {json.dumps(message)}")
         update_queue.put(json.dumps(message))
         
     def _handle_meters(self, address, *args):
@@ -156,11 +162,14 @@ class X32Dispatcher(dispatcher.Dispatcher):
             
             # Store values and send update
             self._values[address] = {"left": left_db, "right": right_db}
-            self._queue.put(json.dumps({
+            message = json.dumps({
                 "type": "meters",
                 "left": left_db,
                 "right": right_db
-            }))
+            })
+            logger.debug(f"Putting meter message in queue: {message}")
+            update_queue.put(message)
+            
         except Exception as e:
             logger.error(f"Error parsing meter data: {e}")
         
@@ -403,6 +412,7 @@ class X32Connection:
                     "channel": channel_name,
                     "value": value
                 }
+                logger.debug(f"Putting initial fader message in queue: {json.dumps(message)}")
                 update_queue.put(json.dumps(message))
         
         # Send master fader value
@@ -413,6 +423,7 @@ class X32Connection:
                 "channel": "master",
                 "value": master_value
             }
+            logger.debug(f"Putting initial master fader message in queue: {json.dumps(message)}")
             update_queue.put(json.dumps(message))
 
 # Global X32 connection
@@ -463,6 +474,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket client connected")
     connected_clients.append(websocket)
+    logger.info(f"Number of connected clients: {len(connected_clients)}")
     
     try:
         # Request initial values when client connects

@@ -2,61 +2,66 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>X32 Controller</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Prevent pinch zoom -->
+    <script>
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+    </script>
 </head>
 <body>
-    <div class="mixer-container">
-        <div class="channels-container">
-            <!-- Channel strips werden dynamisch durch JavaScript eingefügt -->
-        </div>
-        
-        <div class="master-section">
-            <div class="channel-strip master">
-                <div class="channel-name">MASTER</div>
-                <div class="meter-container">
-                    <div class="meter left">
-                        <div class="meter-bar left-meter" style="height: 0%"></div>
-                        <div class="meter-scale">
-                            <div class="meter-mark">0</div>
-                            <div class="meter-mark">-6</div>
-                            <div class="meter-mark">-12</div>
-                            <div class="meter-mark">-18</div>
-                            <div class="meter-mark">-24</div>
-                            <div class="meter-mark">-48</div>
-                        </div>
+    <div class="content-wrapper">
+        <div class="mixer-container">
+            <div class="mixer-header-left">SHARPFLIX</div>
+            <div class="mixer-header-right">Hörsaal Audiosteuerung</div>
+            <div class="channels-container">
+                <!-- Channel strips werden dynamisch durch JavaScript eingefügt -->
+            </div>
+            
+            <div class="master-section">
+                <div class="channel-strip master">
+                    <div class="channel-name">MASTER</div>
+                    <div class="fader-container">
+                        <div class="marks"></div>
+                        <input type="range" class="fader master-fader" min="0" max="1" step="0.01" value="0.75">
                     </div>
-                    <div class="meter right">
-                        <div class="meter-bar right-meter" style="height: 0%"></div>
-                        <div class="meter-scale">
-                            <div class="meter-mark">0</div>
-                            <div class="meter-mark">-6</div>
-                            <div class="meter-mark">-12</div>
-                            <div class="meter-mark">-18</div>
-                            <div class="meter-mark">-24</div>
-                            <div class="meter-mark">-48</div>
+                    <button class="mute-button master-mute">MUTE</button>
+                </div>
+                
+                <div class="meters-section">
+                    <div class="section-label">OUTPUT</div>
+                    <div class="meter-container">
+                        <div class="meter left">
+                            <div class="meter-bar left-meter"></div>
+                        </div>
+                        <div class="meter right">
+                            <div class="meter-bar right-meter"></div>
                         </div>
                     </div>
                 </div>
-                <div class="fader-container">
-                    <div class="marks"></div>
-                    <input type="range" class="fader master-fader" min="0" max="1" step="0.01" value="0.75">
-                </div>
-                <button class="mute-button master-mute">MUTE</button>
             </div>
         </div>
-    </div>
-    <div class="control-panel">
-        <div class="control-panel-header">Regie Controls</div>
-        <div class="control-panel-content">
-            <button id="gongButton" class="control-button">
-                <i class="fas fa-bell"></i>
-                <span>Gong</span>
-            </button>
+        <div class="control-panel">
+            <h2>Regie Controls</h2>
+            <div class="control-panel-buttons">
+                <button id="gongButton">
+                    <i class="fas fa-bell"></i>
+                    Gong
+                </button>
+            </div>
         </div>
     </div>
     <script src="/static/script.js"></script>
