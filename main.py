@@ -49,23 +49,20 @@ class X32Connection:
             # Setup dispatcher and server
             self._dispatcher = X32Dispatcher(self._input_queue)
             
-            # Create UDP socket and bind it
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self._sock.bind(("0.0.0.0", server_port))
-            logger.info(f"Socket bound to 0.0.0.0:{server_port}")
-            
-            # Create server using the existing socket
+            # Create server
             self._server = osc_server.ThreadingOSCUDPServer(
                 ("0.0.0.0", server_port), 
-                self._dispatcher,
-                socket=self._sock
+                self._dispatcher
             )
-            logger.info(f"OSC server created using bound socket")
+            logger.info(f"OSC server created on port {server_port}")
             
-            # Create client using the same socket
+            # Get the socket from server and enable address reuse
+            self._server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            
+            # Create client and use server's socket
             self._client = udp_client.SimpleUDPClient(x32_address, X32_PORT)
-            self._client._sock = self._sock  # Use the same socket
-            logger.info("OSC client created using same socket")
+            self._client._sock = self._server.socket
+            logger.info("OSC client created using server socket")
             
             # Start server thread
             self._server_thread = Thread(target=self._server.serve_forever)
