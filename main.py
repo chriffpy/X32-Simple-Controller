@@ -12,8 +12,7 @@ import queue
 from collections import namedtuple
 from config import X32_IP, X32_PORT, CHANNEL_MAPPING, LOCAL_PORT
 from queue import Queue
-import simpleaudio as sa
-from pydub import AudioSegment
+import pygame
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 
@@ -359,8 +358,7 @@ async def read_root():
 async def play_gong():
     try:
         import os
-        import wave
-        import simpleaudio as sa
+        import pygame
         
         gong_path = os.path.join(os.path.dirname(__file__), 'audio', 'gong.mp3')
         logging.info(f"Attempting to play gong from: {gong_path}")
@@ -371,18 +369,11 @@ async def play_gong():
                 content={"status": "error", "message": "Gong file not found"},
                 status_code=404
             )
-            
-        # Convert MP3 to WAV in memory using pydub
-        from pydub import AudioSegment
-        sound = AudioSegment.from_mp3(gong_path)
         
-        # Play using simpleaudio
-        play_obj = sa.play_buffer(
-            sound.raw_data,
-            num_channels=sound.channels,
-            bytes_per_sample=sound.sample_width,
-            sample_rate=sound.frame_rate
-        )
+        # Initialize pygame mixer
+        pygame.mixer.init()
+        pygame.mixer.music.load(gong_path)
+        pygame.mixer.music.play()
         
         return JSONResponse(content={"status": "success"})
     except Exception as e:
