@@ -12,7 +12,8 @@ import queue
 from collections import namedtuple
 from config import X32_IP, X32_PORT, CHANNEL_MAPPING, LOCAL_PORT
 from queue import Queue
-import playsound
+import simpleaudio as sa
+from pydub import AudioSegment
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 
@@ -358,18 +359,12 @@ async def read_root():
 async def play_gong():
     try:
         import os
+        import wave
+        import simpleaudio as sa
+        
         gong_path = os.path.join(os.path.dirname(__file__), 'audio', 'gong.mp3')
         logging.info(f"Attempting to play gong from: {gong_path}")
         
-        try:
-            from playsound import playsound
-        except ImportError as e:
-            logging.error(f"Failed to import playsound: {e}")
-            return JSONResponse(
-                content={"status": "error", "message": "playsound module not available"},
-                status_code=500
-            )
-            
         if not os.path.exists(gong_path):
             logging.error(f"Gong file not found at: {gong_path}")
             return JSONResponse(
@@ -377,7 +372,18 @@ async def play_gong():
                 status_code=404
             )
             
-        playsound(gong_path)
+        # Convert MP3 to WAV in memory using pydub
+        from pydub import AudioSegment
+        sound = AudioSegment.from_mp3(gong_path)
+        
+        # Play using simpleaudio
+        play_obj = sa.play_buffer(
+            sound.raw_data,
+            num_channels=sound.channels,
+            bytes_per_sample=sound.sample_width,
+            sample_rate=sound.frame_rate
+        )
+        
         return JSONResponse(content={"status": "success"})
     except Exception as e:
         logging.error(f"Error playing gong: {str(e)}")
