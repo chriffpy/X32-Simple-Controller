@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.websockets import WebSocketDisconnect
 from pythonosc import udp_client, dispatcher, osc_server
 import json
 import logging
@@ -15,6 +16,8 @@ from queue import Queue
 import pygame
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
+import math
+import struct
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -43,21 +46,24 @@ async def broadcast_message(message: str):
             if client in connected_clients:
                 connected_clients.remove(client)
 
-def broadcast_worker():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
+async def process_queue():
     while True:
-        message = update_queue.get()
-        if message is None:
-            break
-            
-        # Schedule coroutine in the event loop
-        loop.run_until_complete(broadcast_message(message))
+        try:
+            # Warte auf neue Nachrichten in der Queue
+            message = await asyncio.get_event_loop().run_in_executor(None, update_queue.get)
+            if message:
+                await broadcast_message(message)
+        except Exception as e:
+            logger.error(f"Error processing queue: {e}")
+            await asyncio.sleep(0.1)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(process_queue())
 
 # Start broadcast worker thread
-broadcast_thread = Thread(target=broadcast_worker, daemon=True)
-broadcast_thread.start()
+# broadcast_thread = Thread(target=broadcast_worker, daemon=True)
+# broadcast_thread.start()
 
 ReceivedMessage = namedtuple("ReceivedMessage", "address, tags, data")
 
@@ -71,6 +77,11 @@ class X32Dispatcher(dispatcher.Dispatcher):
         self.map("/xinfo", self._handle_xinfo)
         self.map("/ch/*/mix/fader", self._handle_fader)
         self.map("/main/st/mix/fader", self._handle_fader)
+        self.map("/meters/2", self._handle_meters)  # Main LR Meter (index 19,20 in array)
+        
+    def get_value(self, address):
+        """Get the last known value for an address"""
+        return self._values.get(address)
         
     def _handle_xinfo(self, address, *args):
         logger.debug(f"Received XINFO response: {args}")
@@ -102,9 +113,56 @@ class X32Dispatcher(dispatcher.Dispatcher):
         # Put message in queue instead of direct send
         update_queue.put(json.dumps(message))
         
-    def get_value(self, path):
-        """Get latest value from cache"""
-        return self._values.get(path)
+    def _handle_meters(self, address, *args):
+        """Handle meter data from X32
+        Format: <meter id> ,b~~<int1><int2><nativefloat>...<nativefloat>
+        int1: length of blob in bytes (32 bits big-endian)
+        int2: number of floats (32 bits little-endian)
+        nativefloat: 32 bits float values, little-endian
+        """
+        try:
+            if not args or not isinstance(args[0], bytes):
+                return
+                
+            blob = args[0]
+            # Log the raw blob data
+            logger.debug(f"Complete raw blob data: {' '.join([f'{b:02x}' for b in blob])}")
+            logger.debug(f"Blob length: {len(blob)} bytes")
+            
+            # Skip the first 4 bytes (header)
+            data = blob[4:]
+            
+            # Read all floats for debugging
+            all_floats = []
+            for i in range(0, min(len(data), 96), 4):  # Read first 24 floats
+                value = struct.unpack('<f', data[i:i+4])[0]
+                all_floats.append(value)
+            logger.debug(f"First 24 float values: {all_floats}")
+            
+            # Main LR sind an Position 16,22 im Array (nach dem Header)
+            left_raw = all_floats[16] if len(all_floats) > 16 else 0
+            right_raw = all_floats[22] if len(all_floats) > 22 else 0
+            
+            # Debug der Rohwerte
+            logger.debug(f"Raw meter values - Left: {left_raw}, Right: {right_raw}")
+            
+            # Konvertiere die Werte in dB (-inf bis 0)
+            # Die Werte kommen als 0.0 - 1.0, wobei 1.0 = 0 dB entspricht
+            left_db = 20 * math.log10(left_raw) if left_raw > 0 else float('-inf')
+            right_db = 20 * math.log10(right_raw) if right_raw > 0 else float('-inf')
+            
+            # Debug der dB-Werte
+            logger.debug(f"dB values - Left: {left_db}, Right: {right_db}")
+            
+            # Store values and send update
+            self._values[address] = {"left": left_db, "right": right_db}
+            self._queue.put(json.dumps({
+                "type": "meters",
+                "left": left_db,
+                "right": right_db
+            }))
+        except Exception as e:
+            logger.error(f"Error parsing meter data: {e}")
         
     def handle_message(self, address, *args):
         logger.debug(f"Received OSC message: {address} {args}")
@@ -144,6 +202,12 @@ class X32Connection:
             self._server_thread.daemon = True
             self._server_thread.start()
             logger.info("OSC server thread started")
+            
+            # Start meter polling thread
+            self._meter_thread = Thread(target=self._poll_meters)
+            self._meter_thread.daemon = True
+            self._meter_thread.start()
+            logger.info("Meter polling thread started")
             
             # Initialize connection
             self._initialize_connection()
@@ -249,6 +313,17 @@ class X32Connection:
         if not self._connected:
             logger.error(f"Failed to connect to X32 at {self._x32_address}:{X32_PORT}")
             raise ConnectionError(f"Could not connect to X32 at {self._x32_address}:{X32_PORT}")
+
+    def _poll_meters(self):
+        """Poll meter values regularly"""
+        while True:
+            if self._connected:
+                try:
+                    # Request meter values for Main LR
+                    self._client.send_message("/meters", ["/meters/2"])
+                except Exception as e:
+                    logger.error(f"Error polling meters: {e}")
+            time.sleep(0.05)  # 50ms update rate
 
     def get_value(self, path):
         """Get value from X32"""
@@ -390,41 +465,62 @@ async def websocket_endpoint(websocket: WebSocket):
     connected_clients.append(websocket)
     
     try:
+        # Request initial values when client connects
+        x32.request_initial_values()
+        
         while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            
-            if message["type"] == "request_initial_values":
-                x32.request_initial_values()
-            elif message["type"] == "fader":
-                channel = message["channel"]
-                value = message["value"]
+            try:
+                # Setze ein Timeout für receive_text
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+                message = json.loads(data)
                 
-                if channel == "master":
-                    path = "/main/st/mix/fader"
-                else:
-                    channel_num = CHANNEL_MAPPING[channel]
-                    path = f"/ch/{channel_num:02d}/mix/fader"
+                if message["type"] == "request_initial_values":
+                    x32.request_initial_values()
+                elif message["type"] == "fader":
+                    channel = message["channel"]
+                    value = message["value"]
+                    
+                    if channel == "master":
+                        path = "/main/st/mix/fader"
+                    else:
+                        channel_num = CHANNEL_MAPPING[channel]
+                        path = f"/ch/{channel_num:02d}/mix/fader"
+                    
+                    x32.set_value(path, float(value))
+                    
+                elif message["type"] == "mute":
+                    channel = message["channel"]
+                    value = message["value"]
+                    
+                    if channel == "master":
+                        path = "/main/st/mix/on"
+                    else:
+                        channel_num = CHANNEL_MAPPING[channel]
+                        path = f"/ch/{channel_num:02d}/mix/on"
+                    
+                    x32.set_value(path, 1 if value else 0)
+                    
+            except asyncio.TimeoutError:
+                # Timeout ist normal, weiter warten
+                continue
+            except WebSocketDisconnect:
+                logger.info("WebSocket client disconnected normally")
+                break
+            except json.JSONDecodeError:
+                logger.warning("Invalid JSON received")
+                continue
+            except Exception as e:
+                logger.error(f"Error processing WebSocket message: {e}")
+                break
                 
-                x32.set_value(path, float(value))
-                
-            elif message["type"] == "mute":
-                channel = message["channel"]
-                value = message["value"]
-                
-                if channel == "master":
-                    path = "/main/st/mix/on"
-                else:
-                    channel_num = CHANNEL_MAPPING[channel]
-                    path = f"/ch/{channel_num:02d}/mix/on"
-                
-                x32.set_value(path, 1 if value else 0)
-    
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected normally")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
-        logger.info("WebSocket client disconnected")
-        connected_clients.remove(websocket)
+        if websocket in connected_clients:
+            connected_clients.remove(websocket)
+            logger.info("WebSocket client removed from connected clients")
 
 if __name__ == "__main__":
     import uvicorn

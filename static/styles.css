@@ -472,3 +472,65 @@ input[type="range"].fader::-webkit-slider-runnable-track {
 .control-button i {
     font-size: 18px;
 }
+
+/* Meter Styles */
+.meter-container {
+    display: flex;
+    gap: 4px;
+    margin: 10px 0;
+    height: 200px;
+    width: 100px;
+    margin: 0 auto;
+}
+
+.meter {
+    flex: 1;
+    position: relative;
+    background: #2a2a2a;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid #444;
+}
+
+.meter-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    min-height: 0%;
+    background: linear-gradient(to top, 
+        #34c759 0%, #34c759 60%,   /* Green (below -9dB) */
+        #ffcc00 60%, #ffcc00 80%,  /* Yellow (-9 to -3dB) */
+        #ff3b30 80%, #ff3b30 100%  /* Red (above -3dB) */
+    );
+    transition: height 0.1s ease-out;
+}
+
+.meter-scale {
+    position: absolute;
+    right: 2px;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    color: #888;
+    font-size: 8px;
+    padding: 5px 0;
+    pointer-events: none;
+}
+
+.meter-mark {
+    line-height: 1;
+    text-align: right;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+}
+
+/* Meter Level Positions */
+.meter-mark:nth-child(1) { bottom: 100%; }   /* 0dB */
+.meter-mark:nth-child(2) { bottom: 87.5%; }  /* -6dB */
+.meter-mark:nth-child(3) { bottom: 75%; }    /* -12dB */
+.meter-mark:nth-child(4) { bottom: 62.5%; }  /* -18dB */
+.meter-mark:nth-child(5) { bottom: 50%; }    /* -24dB */
+.meter-mark:nth-child(6) { bottom: 25%; }    /* -48dB */
