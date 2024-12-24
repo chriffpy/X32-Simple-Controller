@@ -302,13 +302,40 @@ class X32Connection:
 
     def request_initial_values(self):
         """Request current values for all channels"""
-        if not self._connected:
-            logger.error("Not connected to X32")
-            return
+        logger.info("Requesting initial channel values")
+        
+        # Request main fader
+        self._client.send_message("/main/st/mix/fader", None)
+        
+        # Request channel faders
+        for channel_num in CHANNEL_MAPPING.values():
+            path = f"/ch/{channel_num:02d}/mix/fader"
+            self._client.send_message(path, None)
             
-        logger.info("Waiting for initial channel values from subscription")
-        # Values will come automatically through the subscription system
-        time.sleep(0.5)  # Give some time for initial values to arrive
+        # Small delay to allow responses to arrive
+        time.sleep(0.1)
+        
+        # Send current values from cache
+        for channel_name, channel_num in CHANNEL_MAPPING.items():
+            path = f"/ch/{channel_num:02d}/mix/fader"
+            value = self._dispatcher.get_value(path)
+            if value is not None:
+                message = {
+                    "type": "fader",
+                    "channel": channel_name,
+                    "value": value
+                }
+                update_queue.put(json.dumps(message))
+        
+        # Send master fader value
+        master_value = self._dispatcher.get_value("/main/st/mix/fader")
+        if master_value is not None:
+            message = {
+                "type": "fader",
+                "channel": "master",
+                "value": master_value
+            }
+            update_queue.put(json.dumps(message))
 
 # Global X32 connection
 logger.info(f"Creating X32 connection to {X32_IP}:{X32_PORT}")
@@ -331,37 +358,35 @@ async def websocket_endpoint(websocket: WebSocket):
     connected_clients.append(websocket)
     
     try:
-        # Send initial values when client connects
-        x32.request_initial_values()
-        
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
             
-            if "type" in message:
-                if message["type"] == "fader":
-                    channel = message["channel"]
-                    value = message["value"]
-                    
-                    if channel == "master":
-                        path = "/main/st/mix/fader"
-                    else:
-                        channel_num = CHANNEL_MAPPING[channel]
-                        path = f"/ch/{channel_num:02d}/mix/fader"
-                    
-                    x32.set_value(path, float(value))
-                    
-                elif message["type"] == "mute":
-                    channel = message["channel"]
-                    value = message["value"]
-                    
-                    if channel == "master":
-                        path = "/main/st/mix/on"
-                    else:
-                        channel_num = CHANNEL_MAPPING[channel]
-                        path = f"/ch/{channel_num:02d}/mix/on"
-                    
-                    x32.set_value(path, 1 if value else 0)
+            if message["type"] == "request_initial_values":
+                x32.request_initial_values()
+            elif message["type"] == "fader":
+                channel = message["channel"]
+                value = message["value"]
+                
+                if channel == "master":
+                    path = "/main/st/mix/fader"
+                else:
+                    channel_num = CHANNEL_MAPPING[channel]
+                    path = f"/ch/{channel_num:02d}/mix/fader"
+                
+                x32.set_value(path, float(value))
+                
+            elif message["type"] == "mute":
+                channel = message["channel"]
+                value = message["value"]
+                
+                if channel == "master":
+                    path = "/main/st/mix/on"
+                else:
+                    channel_num = CHANNEL_MAPPING[channel]
+                    path = f"/ch/{channel_num:02d}/mix/on"
+                
+                x32.set_value(path, 1 if value else 0)
     
     except Exception as e:
         logger.error(f"WebSocket error: {e}")

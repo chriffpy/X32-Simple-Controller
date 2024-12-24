@@ -105,6 +105,11 @@ ws.onopen = () => {
     console.log('Connected to server');
     initializeChannels();
     setupEventListeners();
+    
+    // Request initial fader values
+    ws.send(JSON.stringify({
+        type: 'request_initial_values'
+    }));
 };
 
 ws.onerror = (error) => {
