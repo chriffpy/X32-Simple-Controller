@@ -1,3 +1,9 @@
+/**
+ * X32 Simple Controller
+ * Autor: Christopher Gertig
+ * Erstellt: Dezember 2024
+ */
+
 // WebSocket-Verbindungsvariablen
 let ws = null;
 let reconnectTimeout = null;

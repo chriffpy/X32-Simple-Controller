@@ -1,3 +1,9 @@
+"""
+X32 Simple Controller
+Autor: Christopher Gertig
+Erstellt: Dezember 2024
+"""
+
 # Import der benötigten Bibliotheken
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
@@ -20,10 +26,10 @@ from fastapi.responses import JSONResponse
 import math
 import struct
 
-# Konfiguration des Loggings für Debugging und Fehleranalyse
+# Logging auf kritische Fehler beschränken
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.CRITICAL,  # Nur kritische Fehler werden geloggt
+    format='%(message)s'     # Vereinfachtes Format ohne Zeitstempel
 )
 logger = logging.getLogger(__name__)
 
@@ -67,7 +73,8 @@ async def process_queue():
 async def startup_event():
     # Start the queue processing task
     asyncio.create_task(process_queue())
-    logger.info("Started queue processing task")
+    print("\nX32 Simple Controller bereit!")
+    print("Öffnen Sie http://localhost:8000 im Browser\n")
 
 # Start broadcast worker thread
 # broadcast_thread = Thread(target=broadcast_worker, daemon=True)
@@ -542,5 +549,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("Starting FastAPI server")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("\n" + "="*50)
+    print("X32 Simple Controller")
+    print("Autor: Christopher Gertig")
+    print("Version: 0.2.2 - Dezember 2024")
+    print("="*50 + "\n")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="critical")
