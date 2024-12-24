@@ -79,6 +79,20 @@ function setupEventListeners() {
             value: isMuted ? 0 : 1
         }));
     });
+
+    document.getElementById('gongButton').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/play-gong', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            if (data.status !== 'success') {
+                console.error('Failed to play gong:', data.message);
+            }
+        } catch (error) {
+            console.error('Error playing gong:', error);
+        }
+    });
 }
 
 // Handle updates from the server

@@ -12,6 +12,9 @@ import queue
 from collections import namedtuple
 from config import X32_IP, X32_PORT, CHANNEL_MAPPING, LOCAL_PORT
 from queue import Queue
+import playsound
+from fastapi import FastAPI, Response
+from fastapi.responses import JSONResponse
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -350,6 +353,38 @@ connection_thread.start()
 @app.get("/")
 async def read_root():
     return FileResponse("static/index.html")
+
+@app.post("/play-gong")
+async def play_gong():
+    try:
+        import os
+        gong_path = os.path.join(os.path.dirname(__file__), 'audio', 'gong.mp3')
+        logging.info(f"Attempting to play gong from: {gong_path}")
+        
+        try:
+            from playsound import playsound
+        except ImportError as e:
+            logging.error(f"Failed to import playsound: {e}")
+            return JSONResponse(
+                content={"status": "error", "message": "playsound module not available"},
+                status_code=500
+            )
+            
+        if not os.path.exists(gong_path):
+            logging.error(f"Gong file not found at: {gong_path}")
+            return JSONResponse(
+                content={"status": "error", "message": "Gong file not found"},
+                status_code=404
+            )
+            
+        playsound(gong_path)
+        return JSONResponse(content={"status": "success"})
+    except Exception as e:
+        logging.error(f"Error playing gong: {str(e)}")
+        return JSONResponse(
+            content={"status": "error", "message": str(e)},
+            status_code=500
+        )
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
