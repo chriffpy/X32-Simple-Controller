@@ -82,7 +82,7 @@ function setupEventListeners() {
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     
-    if (data.type === 'fader_update') {
+    if (data.type === 'fader') {
         // Update channel fader
         const fader = document.querySelector(`input[data-channel="${data.channel}"]`);
         if (fader) {
@@ -90,7 +90,7 @@ ws.onmessage = (event) => {
         } else if (data.channel === 'master') {
             document.querySelector('.master-fader').value = data.value;
         }
-    } else if (data.type === 'mute_update') {
+    } else if (data.type === 'mute') {
         // Update mute button state
         const button = document.querySelector(`button[data-channel="${data.channel}"]`);
         if (button) {

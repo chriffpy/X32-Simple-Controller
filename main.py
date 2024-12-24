@@ -26,24 +26,32 @@ connected_clients = []
 update_queue = Queue()
 
 # Broadcast worker thread
+async def broadcast_message(message: str):
+    if not message:
+        return
+        
+    # Convert to list to avoid modification during iteration
+    clients = list(connected_clients)
+    for client in clients:
+        try:
+            await client.send_text(message)
+        except Exception as e:
+            logger.error(f"Error sending to client: {e}")
+            if client in connected_clients:
+                connected_clients.remove(client)
+
 def broadcast_worker():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     while True:
         message = update_queue.get()
         if message is None:
             break
             
-        # Convert to list to avoid modification during iteration
-        clients = list(connected_clients)
-        for client in clients:
-            try:
-                # Run in the event loop
-                loop = asyncio.get_event_loop()
-                loop.create_task(client.send_text(message))
-            except Exception as e:
-                logger.error(f"Error sending to client: {e}")
-                if client in connected_clients:
-                    connected_clients.remove(client)
-                    
+        # Schedule coroutine in the event loop
+        loop.run_until_complete(broadcast_message(message))
+
 # Start broadcast worker thread
 broadcast_thread = Thread(target=broadcast_worker, daemon=True)
 broadcast_thread.start()
