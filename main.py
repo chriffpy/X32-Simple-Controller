@@ -1,3 +1,4 @@
+# Import der benötigten Bibliotheken
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -19,25 +20,26 @@ from fastapi.responses import JSONResponse
 import math
 import struct
 
-# Logging konfigurieren
+# Konfiguration des Loggings für Debugging und Fehleranalyse
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+# Initialisierung der FastAPI-Anwendung und Einbindung der statischen Dateien
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 connected_clients = []
 update_queue = Queue()
 
-# Broadcast worker thread
+# Broadcast-Funktion zum Senden von Nachrichten an alle verbundenen WebSocket-Clients
 async def broadcast_message(message: str):
     if not message:
         return
         
     logger.debug(f"Broadcasting message to {len(connected_clients)} clients: {message}")
-    # Convert to list to avoid modification during iteration
+    # Konvertiere zu Liste um Modifikation während der Iteration zu vermeiden
     clients = list(connected_clients)
     for client in clients:
         try:
@@ -48,6 +50,7 @@ async def broadcast_message(message: str):
             if client in connected_clients:
                 connected_clients.remove(client)
 
+# Verarbeitung der Nachrichten-Queue für asynchrone Kommunikation
 async def process_queue():
     while True:
         try:
@@ -70,19 +73,21 @@ async def startup_event():
 # broadcast_thread = Thread(target=broadcast_worker, daemon=True)
 # broadcast_thread.start()
 
+# Definition einer Nachrichtenstruktur für empfangene OSC-Nachrichten
 ReceivedMessage = namedtuple("ReceivedMessage", "address, tags, data")
 
+# Dispatcher-Klasse für die Verarbeitung von OSC-Nachrichten vom X32
 class X32Dispatcher(dispatcher.Dispatcher):
     def __init__(self, queue):
         super().__init__()
         self._queue = queue
-        self._values = {}  # Store latest values
+        self._values = {}  # Speicherung der letzten Werte
         
-        # Add specific handlers
+        # Registrierung spezifischer Handler
         self.map("/xinfo", self._handle_xinfo)
         self.map("/ch/*/mix/fader", self._handle_fader)
         self.map("/main/st/mix/fader", self._handle_fader)
-        self.map("/meters/2", self._handle_meters)  # Main LR Meter (index 19,20 in array)
+        self.map("/meters/2", self._handle_meters)  # Hauptmeter LR (Index 19,20 im Array)
         
     def get_value(self, address):
         """Get the last known value for an address"""
@@ -177,6 +182,7 @@ class X32Dispatcher(dispatcher.Dispatcher):
         logger.debug(f"Received OSC message: {address} {args}")
         self._queue.put({"address": address, "args": args})
 
+# X32-Verbindungs-Klasse für die Kommunikation mit dem X32
 class X32Connection:
     def __init__(self, x32_address, server_port, timeout=10):
         self._timeout = timeout
@@ -188,7 +194,7 @@ class X32Connection:
         logger.info(f"Initializing X32 connection to {x32_address}:{X32_PORT}")
         
         try:
-            # Setup dispatcher and server
+            # Setup dispatcher und server
             self._dispatcher = X32Dispatcher(self._input_queue)
             
             # Create server
@@ -198,7 +204,7 @@ class X32Connection:
             )
             logger.info(f"OSC server created on port {server_port}")
             
-            # Get the socket from server and enable address reuse
+            # Get the socket from server und enable address reuse
             self._server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             
             # Create client and use server's socket
@@ -426,7 +432,7 @@ class X32Connection:
             logger.debug(f"Putting initial master fader message in queue: {json.dumps(message)}")
             update_queue.put(json.dumps(message))
 
-# Global X32 connection
+# Globale X32-Verbindung initialisieren
 logger.info(f"Creating X32 connection to {X32_IP}:{X32_PORT}")
 x32 = X32Connection(X32_IP, LOCAL_PORT)
 

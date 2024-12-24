@@ -1,9 +1,11 @@
+// WebSocket-Verbindungsvariablen
 let ws = null;
 let reconnectTimeout = null;
-const RECONNECT_DELAY = 1000; // 1 Sekunde
-const MAX_RECONNECT_DELAY = 5000; // Maximale Verzögerung 5 Sekunden
+const RECONNECT_DELAY = 1000; // Initiale Wiederverbindungsverzögerung: 1 Sekunde
+const MAX_RECONNECT_DELAY = 5000; // Maximale Verzögerung: 5 Sekunden
 let currentReconnectDelay = RECONNECT_DELAY;
 
+// Funktion zum Aufbau der WebSocket-Verbindung
 function connectWebSocket() {
     if (ws !== null && ws.readyState !== WebSocket.CLOSED) {
         return;
@@ -11,15 +13,17 @@ function connectWebSocket() {
     
     clearTimeout(reconnectTimeout);
     
+    // Wähle das korrekte WebSocket-Protokoll basierend auf der Seitenverbindung
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     
+    // Event-Handler für erfolgreiche Verbindung
     ws.onopen = () => {
-        console.log('Connected to server');
-        currentReconnectDelay = RECONNECT_DELAY; // Reset delay on successful connection
+        console.log('Verbunden mit Server');
+        currentReconnectDelay = RECONNECT_DELAY; // Setze Verzögerung zurück
         clearTimeout(reconnectTimeout);
         
-        // Request initial values
+        // Anfrage der initialen Werte vom Server
         ws.send(JSON.stringify({
             type: 'request_initial_values'
         }));
@@ -28,30 +32,33 @@ function connectWebSocket() {
         setupEventListeners();
     };
     
+    // Event-Handler für Verbindungsabbruch
     ws.onclose = () => {
-        console.log('Disconnected from server - attempting to reconnect...');
+        console.log('Verbindung zum Server abgebrochen - Versuche, erneut zu verbinden...');
         clearTimeout(reconnectTimeout);
         
-        // Exponential backoff with max delay
+        // Exponentielles Backoff mit maximaler Verzögerung
         currentReconnectDelay = Math.min(currentReconnectDelay * 1.5, MAX_RECONNECT_DELAY);
         reconnectTimeout = setTimeout(connectWebSocket, currentReconnectDelay);
     };
     
+    // Event-Handler für Verbindungsfehler
     ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('WebSocket-Fehler:', error);
     };
     
+    // Event-Handler für eingehende Nachrichten
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data);
+            console.log('WebSocket-Nachricht empfangen:', data);
 
             if (data.type === 'fader') {
-                // Update channel fader
+                // Aktualisiere Kanalfader
                 const fader = document.querySelector(`input[data-channel="${data.channel}"]`);
                 if (fader) {
                     fader.value = data.value;
-                    console.log(`Updated fader ${data.channel} to ${data.value}`);
+                    console.log(`Fader ${data.channel} aktualisiert auf ${data.value}`);
                 }
                 
                 // Spezielle Behandlung für Master-Fader
@@ -59,13 +66,13 @@ function connectWebSocket() {
                     const masterFader = document.querySelector('.master-fader');
                     if (masterFader) {
                         masterFader.value = data.value;
-                        console.log(`Updated master fader to ${data.value}`);
+                        console.log(`Master-Fader aktualisiert auf ${data.value}`);
                     }
                 }
                 
                 // Entferne die automatische Mute-Aktivierung bei Fader = 0
                 /*
-                // Update mute button state
+                // Aktualisiere Mute-Button Status
                 if (data.channel !== 'master') {
                     const muteButton = document.querySelector(`button[data-channel="${data.channel}"]`);
                     if (muteButton) {
@@ -79,7 +86,7 @@ function connectWebSocket() {
                 }
                 */
             } else if (data.type === 'mute') {
-                // Update mute button state
+                // Aktualisiere Mute-Button Status
                 const button = document.querySelector(`button[data-channel="${data.channel}"]`);
                 if (button) {
                     button.classList.toggle('muted', data.value === 0);
@@ -87,20 +94,20 @@ function connectWebSocket() {
                     document.querySelector('.master-mute').classList.toggle('muted', data.value === 0);
                 }
             } else if (data.type === 'meters') {
-                console.log('Meter data received:', data);
+                console.log('Meter-Daten empfangen:', data);
                 updateMeters(data.left, data.right);
             }
         } catch (e) {
-            console.error('Error processing message:', e, event.data);
+            console.error('Fehler bei der Verarbeitung der Nachricht:', e, event.data);
         }
     };
 }
 
-// Meter Handling
+// Meter-Aktualisierungsfunktionen
 function updateMeters(leftDb, rightDb) {
     // Konvertiere dB in Prozent (0dB = 100%, -48dB = 0%)
     function dbToPercent(db) {
-        // Ensure db is a number and not -inf
+        // Stelle sicher, dass db eine Zahl ist und nicht -inf
         db = parseFloat(db);
         if (isNaN(db) || db === Number.NEGATIVE_INFINITY) {
             return 0;
@@ -116,7 +123,7 @@ function updateMeters(leftDb, rightDb) {
     const rightMeter = document.querySelector('.meter-bar.right-meter');
     
     if (leftMeter && rightMeter) {
-        // Aktualisiere linken Meter
+        // Aktualisierungsfunktion für einzelnen Meter
         const updateMeter = (meter, db) => {
             const height = dbToPercent(db);
             meter.style.height = `${height}%`;
@@ -138,10 +145,11 @@ function updateMeters(leftDb, rightDb) {
         updateMeter(leftMeter, leftDb);
         updateMeter(rightMeter, rightDb);
     } else {
-        console.error('Meter elements not found!');
+        console.error('Meter-Elemente nicht gefunden!');
     }
 }
 
+// Definition der verfügbaren Audiokanäle
 const channels = [
     { name: "Headset 1", id: "Headset 1" },
     { name: "Headset 2", id: "Headset 2" },
@@ -151,6 +159,7 @@ const channels = [
     { name: "Regie", id: "Regie" }
 ];
 
+// Funktion zum Erstellen eines Kanalstreifens im UI
 function createChannelStrip(channel) {
     const stripDiv = document.createElement('div');
     stripDiv.className = 'channel-strip';
@@ -168,6 +177,7 @@ function createChannelStrip(channel) {
     return stripDiv;
 }
 
+// Initialisierung der Kanalstreifen
 function initializeChannels() {
     const container = document.querySelector('.channels-container');
     channels.forEach(channel => {
@@ -175,8 +185,9 @@ function initializeChannels() {
     });
 }
 
+// Event-Listener Setup für alle Bedienelemente
 function setupEventListeners() {
-    // Master fader
+    // Master-Fader Event-Listener
     const masterFader = document.querySelector('.master-fader');
     if (masterFader) {
         masterFader.addEventListener('input', (e) => {
@@ -190,7 +201,7 @@ function setupEventListeners() {
         });
     }
 
-    // Channel faders
+    // Kanal-Fader Event-Listener
     document.querySelectorAll('.fader:not(.master-fader)').forEach(fader => {
         fader.addEventListener('input', (e) => {
             const channel = e.target.dataset.channel;
@@ -204,7 +215,7 @@ function setupEventListeners() {
         });
     });
 
-    // Mute buttons
+    // Mute-Button Event-Listener
     document.querySelectorAll('.mute-button').forEach(button => {
         button.addEventListener('click', (e) => {
             const channel = e.target.dataset.channel;
@@ -226,16 +237,16 @@ function setupEventListeners() {
             });
             const data = await response.json();
             if (data.status !== 'success') {
-                console.error('Failed to play gong:', data.message);
+                console.error('Fehler beim Abspielen des Gongs:', data.message);
             }
         } catch (error) {
-            console.error('Error playing gong:', error);
+            console.error('Fehler beim Abspielen des Gongs:', error);
         }
     });
 }
 
-// Initialisierung
+// Initialisierung beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
-    // Connect WebSocket
+    // Verbinde WebSocket
     connectWebSocket();
 });
