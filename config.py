@@ -1,6 +1,6 @@
 X32_IP = "192.168.217.20"  # Bitte anpassen an die tatsächliche IP des X32
 X32_PORT = 10023  # Standard OSC Port für X32
-LOCAL_PORT = 57123  # Lokaler Port für OSC-Server
+LOCAL_PORT = 64431  # Lokaler Port für OSC-Server
 
 # Channel Mapping: Display Name -> Actual X32 Channel
 CHANNEL_MAPPING = {
