@@ -3,7 +3,8 @@
 Eine benutzerfreundliche Weboberfläche zur Steuerung des Behringer X32 Digital-Mixers.
 
 **Autor:** Christopher Gertig  
-**Erstellt:** Dezember 2024
+**Erstellt:** Dezember 2024  
+**Lizenz:** MIT
 
 ![IMG_0007](https://github.com/user-attachments/assets/c3ed7409-4a62-4ca0-af90-a0804512d937)
 
@@ -83,3 +84,9 @@ Die Kanal-Zuordnung kann in der `config.py` angepasst werden.
    - Der Controller versucht automatisch, die Verbindung wiederherzustellen
    - Überprüfen Sie die Netzwerkstabilität
    - Prüfen Sie die Firewall-Einstellungen
+
+## Lizenz
+
+Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe die [LICENSE](LICENSE) Datei für Details.
+
+Die MIT-Lizenz ist eine permissive Lizenz, die nur minimale Einschränkungen für die Wiederverwendung auferlegt. Die Hauptanforderung ist, dass der Copyright-Hinweis und die Lizenz in allen Kopien oder wesentlichen Teilen der Software enthalten sein müssen.
