@@ -63,6 +63,17 @@ Die Kanal-Zuordnung kann in der `config.py` angepasst werden.
   - Gelb: -12 dB bis -6 dB
   - Rot: über -6 dB
 
+## Datenschutz & Sicherheit
+
+Diese Software:
+- Speichert keine personenbezogenen Daten
+- Verwendet keine Cookies oder lokale Speicherung
+- Sendet keine Daten an externe Server
+- Kommuniziert ausschließlich im lokalen Netzwerk
+- Zeichnet keine Audio-Daten auf
+
+⚠️ **Sicherheitshinweis:** Da das X32 keine eigene Authentifizierung für OSC-Befehle bietet, sollte diese Software nur in vertrauenswürdigen, gesicherten Netzwerken betrieben werden.
+
 ## Sicherheitshinweise
 
 - Der Controller sollte nur in vertrauenswürdigen Netzwerken betrieben werden
