@@ -552,6 +552,6 @@ if __name__ == "__main__":
     print("\n" + "="*50)
     print("X32 Simple Controller")
     print("Autor: Christopher Gertig")
-    print("Version: 0.2.2 - Dezember 2024")
+    print("Version: 0.3 - Dezember 2024")
     print("="*50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="critical")
