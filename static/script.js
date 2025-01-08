@@ -193,12 +193,28 @@ function initializeChannels() {
 
 // Event-Listener Setup für alle Bedienelemente
 function setupEventListeners() {
+    // Funktion zum Aktualisieren des Fader-Werts
+    function updateFaderValue(fader, touchEvent) {
+        const touch = touchEvent.touches[0];
+        const rect = fader.getBoundingClientRect();
+        const height = rect.height;
+        const y = touch.clientY - rect.top;
+        // Invertiere die Berechnung, da der Fader von unten nach oben geht
+        const value = Math.max(0, Math.min(1, 1 - (y / height)));
+        
+        // Setze den Wert und triggere ein 'input' Event
+        fader.value = value;
+        const event = new Event('input', { bubbles: true });
+        fader.dispatchEvent(event);
+    }
+
     // Master-Fader Event-Listener
     const masterFader = document.querySelector('.master-fader');
     if (masterFader) {
-        // Standard Input Event
+        let isTouching = false;
+
         masterFader.addEventListener('input', (e) => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
+            if (!isTouching && ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'fader',
                     channel: 'master',
@@ -209,38 +225,36 @@ function setupEventListeners() {
 
         // Touch Events für Master-Fader
         masterFader.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Verhindert unerwünschtes Scrolling
-        });
+            e.preventDefault();
+            isTouching = true;
+            updateFaderValue(e.target, e);
+        }, { passive: false });
 
         masterFader.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            const touch = e.touches[0];
-            const fader = e.target;
-            const rect = fader.getBoundingClientRect();
-            const height = rect.height;
-            const y = touch.clientY - rect.top;
-            const value = Math.max(0, Math.min(1, 1 - (y / height)));
-            
-            fader.value = value;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'fader',
-                    channel: 'master',
-                    value: value
-                }));
+            if (isTouching) {
+                updateFaderValue(e.target, e);
             }
+        }, { passive: false });
+
+        masterFader.addEventListener('touchend', () => {
+            isTouching = false;
+        });
+
+        masterFader.addEventListener('touchcancel', () => {
+            isTouching = false;
         });
     }
 
     // Kanal-Fader Event-Listener
     document.querySelectorAll('.fader:not(.master-fader)').forEach(fader => {
-        // Standard Input Event
+        let isTouching = false;
+
         fader.addEventListener('input', (e) => {
-            const channel = e.target.dataset.channel;
-            if (ws && ws.readyState === WebSocket.OPEN) {
+            if (!isTouching && ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'fader',
-                    channel: channel,
+                    channel: e.target.dataset.channel,
                     value: parseFloat(e.target.value)
                 }));
             }
@@ -248,41 +262,24 @@ function setupEventListeners() {
 
         // Touch Events für Kanal-Fader
         fader.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Verhindert unerwünschtes Scrolling
-        });
+            e.preventDefault();
+            isTouching = true;
+            updateFaderValue(e.target, e);
+        }, { passive: false });
 
         fader.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            const touch = e.touches[0];
-            const fader = e.target;
-            const rect = fader.getBoundingClientRect();
-            const height = rect.height;
-            const y = touch.clientY - rect.top;
-            const value = Math.max(0, Math.min(1, 1 - (y / height)));
-            
-            fader.value = value;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'fader',
-                    channel: fader.dataset.channel,
-                    value: value
-                }));
+            if (isTouching) {
+                updateFaderValue(e.target, e);
             }
-        });
-    });
+        }, { passive: false });
 
-    // Mute-Button Event-Listener
-    document.querySelectorAll('.mute-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const channel = e.target.dataset.channel;
-            const isMuted = e.target.classList.toggle('muted');
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'mute',
-                    channel: channel,
-                    value: isMuted ? 0 : 1
-                }));
-            }
+        fader.addEventListener('touchend', () => {
+            isTouching = false;
+        });
+
+        fader.addEventListener('touchcancel', () => {
+            isTouching = false;
         });
     });
 
