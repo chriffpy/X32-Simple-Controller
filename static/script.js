@@ -196,6 +196,7 @@ function setupEventListeners() {
     // Master-Fader Event-Listener
     const masterFader = document.querySelector('.master-fader');
     if (masterFader) {
+        // Standard Input Event
         masterFader.addEventListener('input', (e) => {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
@@ -205,10 +206,35 @@ function setupEventListeners() {
                 }));
             }
         });
+
+        // Touch Events für Master-Fader
+        masterFader.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Verhindert unerwünschtes Scrolling
+        });
+
+        masterFader.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const fader = e.target;
+            const rect = fader.getBoundingClientRect();
+            const height = rect.height;
+            const y = touch.clientY - rect.top;
+            const value = Math.max(0, Math.min(1, 1 - (y / height)));
+            
+            fader.value = value;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'fader',
+                    channel: 'master',
+                    value: value
+                }));
+            }
+        });
     }
 
     // Kanal-Fader Event-Listener
     document.querySelectorAll('.fader:not(.master-fader)').forEach(fader => {
+        // Standard Input Event
         fader.addEventListener('input', (e) => {
             const channel = e.target.dataset.channel;
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -216,6 +242,30 @@ function setupEventListeners() {
                     type: 'fader',
                     channel: channel,
                     value: parseFloat(e.target.value)
+                }));
+            }
+        });
+
+        // Touch Events für Kanal-Fader
+        fader.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Verhindert unerwünschtes Scrolling
+        });
+
+        fader.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const fader = e.target;
+            const rect = fader.getBoundingClientRect();
+            const height = rect.height;
+            const y = touch.clientY - rect.top;
+            const value = Math.max(0, Math.min(1, 1 - (y / height)));
+            
+            fader.value = value;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'fader',
+                    channel: fader.dataset.channel,
+                    value: value
                 }));
             }
         });
