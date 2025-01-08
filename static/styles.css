@@ -412,6 +412,62 @@ body {
     transform: translateY(8px);
 }
 
+/* Mute Button Styles */
+.mute-button {
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
+    border: none;
+    border-radius: 16px;
+    color: var(--text-color);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 14px;
+    margin-top: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 85%;
+    text-align: center;
+    box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.2),
+        0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
+
+.mute-button:hover {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.15) 100%);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.25),
+        0 0 0 0.5px rgba(255, 255, 255, 0.15);
+}
+
+.mute-button:active {
+    transform: translateY(0);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+.mute-button.muted {
+    background: linear-gradient(180deg, var(--muted-color) 0%, #CC3629 100%);
+    color: white;
+    box-shadow: 
+        0 2px 8px rgba(255, 69, 58, 0.3),
+        0 0 0 0.5px rgba(255, 69, 58, 0.5);
+}
+
+.mute-button.muted:hover {
+    background: linear-gradient(180deg, #FF574A 0%, #DD473A 100%);
+    box-shadow: 
+        0 3px 10px rgba(255, 69, 58, 0.4),
+        0 0 0 0.5px rgba(255, 69, 58, 0.6);
+}
+
+.mute-button.muted:active {
+    background: linear-gradient(180deg, #EE3629 0%, #BB2519 100%);
+    box-shadow: 
+        0 1px 4px rgba(255, 69, 58, 0.3),
+        0 0 0 0.5px rgba(255, 69, 58, 0.4);
+}
+
 @media (max-width: 1024px) {
     :root {
         --channel-width: 120px;

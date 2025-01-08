@@ -295,6 +295,21 @@ function setupEventListeners() {
             }
         });
     });
+
+    // Gong-Button Event-Listener
+    document.getElementById('gongButton').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/play-gong', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            if (data.status !== 'success') {
+                console.error('Fehler beim Abspielen des Gongs:', data.message);
+            }
+        } catch (error) {
+            console.error('Fehler beim Abspielen des Gongs:', error);
+        }
+    });
 }
 
 // Initialisierung beim Laden der Seite

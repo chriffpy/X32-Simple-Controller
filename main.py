@@ -93,7 +93,9 @@ class X32Dispatcher(dispatcher.Dispatcher):
         # Registrierung spezifischer Handler
         self.map("/xinfo", self._handle_xinfo)
         self.map("/ch/*/mix/fader", self._handle_fader)
+        self.map("/ch/*/mix/on", self._handle_mute)  # Mute-Status für Kanäle
         self.map("/main/st/mix/fader", self._handle_fader)
+        self.map("/main/st/mix/on", self._handle_mute)  # Mute-Status für Master
         self.map("/meters/2", self._handle_meters)  # Hauptmeter LR (Index 19,20 im Array)
         
     def get_value(self, address):
@@ -129,6 +131,34 @@ class X32Dispatcher(dispatcher.Dispatcher):
         
         # Put message in queue instead of direct send
         logger.debug(f"Putting fader message in queue: {json.dumps(message)}")
+        update_queue.put(json.dumps(message))
+        
+    def _handle_mute(self, address, *args):
+        """Handle mute updates"""
+        logger.debug(f"Received mute update: {address} = {args}")
+        value = args[0] if args else None
+        self._values[address] = value
+        
+        # Create WebSocket update message
+        if address == "/main/st/mix/on":
+            channel = "master"
+        else:
+            # Extract channel number from path
+            channel_num = int(address.split('/')[2])
+            # Find channel name from mapping
+            channel = next((name for name, num in CHANNEL_MAPPING.items() if num == channel_num), None)
+            if channel is None:
+                return
+        
+        # Send update to all connected clients
+        message = {
+            "type": "mute",
+            "channel": channel,
+            "value": value
+        }
+        
+        # Put message in queue instead of direct send
+        logger.debug(f"Putting mute message in queue: {json.dumps(message)}")
         update_queue.put(json.dumps(message))
         
     def _handle_meters(self, address, *args):
