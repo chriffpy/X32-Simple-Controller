@@ -183,15 +183,60 @@ body {
 }
 
 .fader-container {
+    position: relative;
+    width: 60px;
     height: var(--fader-height);
-    width: 30px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 15px;
     padding: 0;
-    position: relative;
-    margin: 0 auto;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fader {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.fader-track {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: calc(100% - 60px); /* Höhe minus Thumb-Höhe */
+    margin: 30px 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.fader-thumb {
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: 60px;
+    height: 30px;
+    margin: 0 auto;
+    background: var(--accent-color);
+    border-radius: 15px;
+    transform: translateY(-50%);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(10, 132, 255, 0.3);
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.fader-thumb:active,
+.fader-thumb.dragging {
+    background: var(--gradient-start);
+    transform: translateY(-50%) scaleY(1.1);
+    box-shadow: 0 4px 12px rgba(10, 132, 255, 0.4);
 }
 
 .marks {
@@ -219,113 +264,6 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
     font-size: 11px;
     color: var(--secondary-text);
-}
-
-input[type="range"].fader {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: var(--fader-height);
-    background: transparent;
-    outline: none;
-    writing-mode: bt-lr;
-    -webkit-writing-mode: bt-lr;
-    cursor: pointer;
-    touch-action: none;
-    position: relative;
-    z-index: 2;
-}
-
-input[type="range"].fader::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 40px;
-    height: 60px;
-    background: var(--accent-color);
-    border-radius: 8px;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    position: relative;
-    z-index: 3;
-}
-
-input[type="range"].fader::-moz-range-thumb {
-    width: 40px;
-    height: 60px;
-    background: var(--accent-color);
-    border-radius: 8px;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    position: relative;
-    z-index: 3;
-}
-
-input[type="range"].fader::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-input[type="range"].fader::-moz-range-track {
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-input[type="range"].fader:active::-webkit-slider-thumb {
-    background: var(--gradient-start);
-    transform: scale(1.1);
-}
-
-input[type="range"].fader:active::-moz-range-thumb {
-    background: var(--gradient-start);
-    transform: scale(1.1);
-}
-
-.mute-button {
-    -webkit-appearance: none;
-    appearance: none;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
-    border: none;
-    border-radius: 8px;
-    color: var(--text-color);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 6px 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 85%;
-    text-align: center;
-    box-shadow: 
-        0 1px 2px rgba(0, 0, 0, 0.2),
-        0 0 0 0.5px rgba(255, 255, 255, 0.1);
-}
-
-.mute-button:hover {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.15) 100%);
-    transform: translateY(-1px);
-    box-shadow: 
-        0 2px 4px rgba(0, 0, 0, 0.25),
-        0 0 0 0.5px rgba(255, 255, 255, 0.15);
-}
-
-.mute-button:active {
-    transform: translateY(0);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-}
-
-.mute-button.muted {
-    background: linear-gradient(180deg, var(--muted-color) 0%, #CC3629 100%);
-    color: white;
-    box-shadow: 
-        0 2px 8px rgba(255, 69, 58, 0.3),
-        0 0 0 0.5px rgba(255, 69, 58, 0.5);
 }
 
 .meter-container {

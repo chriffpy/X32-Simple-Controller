@@ -61,9 +61,13 @@ function connectWebSocket() {
 
             if (data.type === 'fader') {
                 // Aktualisiere Kanalfader
-                const fader = document.querySelector(`input[data-channel="${data.channel}"]`);
+                const fader = document.querySelector(`.fader[data-channel="${data.channel}"]`);
                 if (fader) {
-                    fader.value = data.value;
+                    const thumb = fader.querySelector('.fader-thumb');
+                    thumb.dataset.value = data.value;
+                    const height = fader.getBoundingClientRect().height;
+                    const y = height * (1 - data.value);
+                    thumb.style.top = `${y}px`;
                     console.log(`Fader ${data.channel} aktualisiert auf ${data.value}`);
                 }
                 
@@ -71,29 +75,17 @@ function connectWebSocket() {
                 if (data.channel === 'master') {
                     const masterFader = document.querySelector('.master-fader');
                     if (masterFader) {
-                        masterFader.value = data.value;
+                        const thumb = masterFader.querySelector('.fader-thumb');
+                        thumb.dataset.value = data.value;
+                        const height = masterFader.getBoundingClientRect().height;
+                        const y = height * (1 - data.value);
+                        thumb.style.top = `${y}px`;
                         console.log(`Master-Fader aktualisiert auf ${data.value}`);
                     }
                 }
-                
-                // Entferne die automatische Mute-Aktivierung bei Fader = 0
-                /*
-                // Aktualisiere Mute-Button Status
-                if (data.channel !== 'master') {
-                    const muteButton = document.querySelector(`button[data-channel="${data.channel}"]`);
-                    if (muteButton) {
-                        muteButton.classList.toggle('muted', data.value === 0);
-                    }
-                } else {
-                    const masterMute = document.querySelector('.master-mute');
-                    if (masterMute) {
-                        masterMute.classList.toggle('muted', data.value === 0);
-                    }
-                }
-                */
             } else if (data.type === 'mute') {
                 // Aktualisiere Mute-Button Status
-                const button = document.querySelector(`button[data-channel="${data.channel}"]`);
+                const button = document.querySelector(`.mute-button[data-channel="${data.channel}"]`);
                 if (button) {
                     button.classList.toggle('muted', data.value === 0);
                 } else if (data.channel === 'master') {
@@ -173,10 +165,9 @@ function createChannelStrip(channel) {
         <div class="channel-name">${channel.name}</div>
         <div class="fader-container">
             <div class="marks"></div>
-            <input type="range" class="fader" 
-                   data-channel="${channel.id}"
-                   min="0" max="1" step="0.01" value="0" 
-                   orient="vertical">
+            <div class="fader" data-channel="${channel.id}">
+                <div class="fader-thumb" data-value="0"></div>
+            </div>
         </div>
         <button class="mute-button" data-channel="${channel.id}">MUTE</button>
     `;
@@ -194,107 +185,115 @@ function initializeChannels() {
 // Event-Listener Setup für alle Bedienelemente
 function setupEventListeners() {
     // Funktion zum Aktualisieren des Fader-Werts
-    function updateFaderValue(fader, touchEvent) {
-        const touch = touchEvent.touches[0];
+    function updateFaderValue(fader, y) {
         const rect = fader.getBoundingClientRect();
         const height = rect.height;
-        const y = touch.clientY - rect.top;
-        // Invertiere die Berechnung, da der Fader von unten nach oben geht
-        const value = Math.max(0, Math.min(1, 1 - (y / height)));
+        const normalizedY = Math.max(0, Math.min(height, y - rect.top));
+        const value = Math.max(0, Math.min(1, 1 - (normalizedY / height)));
         
-        // Setze den Wert und triggere ein 'input' Event
-        fader.value = value;
-        const event = new Event('input', { bubbles: true });
-        fader.dispatchEvent(event);
+        // Aktualisiere die Position des Thumbs
+        const thumb = fader.querySelector('.fader-thumb');
+        thumb.style.top = `${normalizedY}px`;
+        thumb.dataset.value = value;
+
+        // Sende den Wert an den Server
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'fader',
+                channel: fader.dataset.channel,
+                value: value
+            }));
+        }
     }
 
-    // Master-Fader Event-Listener
-    const masterFader = document.querySelector('.master-fader');
-    if (masterFader) {
-        let isTouching = false;
-
-        masterFader.addEventListener('input', (e) => {
-            if (!isTouching && ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'fader',
-                    channel: 'master',
-                    value: parseFloat(e.target.value)
-                }));
-            }
-        });
-
-        // Touch Events für Master-Fader
-        masterFader.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            isTouching = true;
-            updateFaderValue(e.target, e);
-        }, { passive: false });
-
-        masterFader.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (isTouching) {
-                updateFaderValue(e.target, e);
-            }
-        }, { passive: false });
-
-        masterFader.addEventListener('touchend', () => {
-            isTouching = false;
-        });
-
-        masterFader.addEventListener('touchcancel', () => {
-            isTouching = false;
-        });
+    // Funktion zum Initialisieren der Fader-Positionen
+    function initializeFaderPosition(fader) {
+        const thumb = fader.querySelector('.fader-thumb');
+        const value = parseFloat(thumb.dataset.value);
+        const height = fader.getBoundingClientRect().height;
+        const y = height * (1 - value);
+        thumb.style.top = `${y}px`;
     }
 
-    // Kanal-Fader Event-Listener
-    document.querySelectorAll('.fader:not(.master-fader)').forEach(fader => {
-        let isTouching = false;
+    // Event-Handler für Maus-Events
+    function handleMouseDown(e) {
+        const fader = e.target.closest('.fader');
+        if (!fader) return;
 
-        fader.addEventListener('input', (e) => {
-            if (!isTouching && ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'fader',
-                    channel: e.target.dataset.channel,
-                    value: parseFloat(e.target.value)
-                }));
-            }
-        });
+        e.preventDefault();
+        const thumb = fader.querySelector('.fader-thumb');
+        thumb.classList.add('dragging');
 
-        // Touch Events für Kanal-Fader
-        fader.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            isTouching = true;
-            updateFaderValue(e.target, e);
-        }, { passive: false });
+        function handleMouseMove(e) {
+            updateFaderValue(fader, e.clientY);
+        }
 
-        fader.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (isTouching) {
-                updateFaderValue(e.target, e);
-            }
-        }, { passive: false });
+        function handleMouseUp() {
+            thumb.classList.remove('dragging');
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
 
-        fader.addEventListener('touchend', () => {
-            isTouching = false;
-        });
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        // Initialer Update
+        updateFaderValue(fader, e.clientY);
+    }
 
-        fader.addEventListener('touchcancel', () => {
-            isTouching = false;
-        });
+    // Event-Handler für Touch-Events
+    function handleTouchStart(e) {
+        const fader = e.target.closest('.fader');
+        if (!fader) return;
+
+        e.preventDefault();
+        const thumb = fader.querySelector('.fader-thumb');
+        thumb.classList.add('dragging');
+
+        function handleTouchMove(e) {
+            const touch = e.touches[0];
+            updateFaderValue(fader, touch.clientY);
+        }
+
+        function handleTouchEnd() {
+            thumb.classList.remove('dragging');
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+            document.removeEventListener('touchcancel', handleTouchEnd);
+        }
+
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd);
+        document.addEventListener('touchcancel', handleTouchEnd);
+        
+        // Initialer Update
+        const touch = e.touches[0];
+        updateFaderValue(fader, touch.clientY);
+    }
+
+    // Initialisiere alle Fader
+    document.querySelectorAll('.fader').forEach(fader => {
+        // Setze initiale Position
+        initializeFaderPosition(fader);
+        
+        // Event-Listener für Maus und Touch
+        fader.addEventListener('mousedown', handleMouseDown);
+        fader.addEventListener('touchstart', handleTouchStart, { passive: false });
     });
 
-    document.getElementById('gongButton').addEventListener('click', async () => {
-        try {
-            const response = await fetch('/play-gong', {
-                method: 'POST'
-            });
-            const data = await response.json();
-            if (data.status !== 'success') {
-                console.error('Fehler beim Abspielen des Gongs:', data.message);
+    // Mute-Button Event-Listener
+    document.querySelectorAll('.mute-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const channel = e.target.dataset.channel;
+            const isMuted = e.target.classList.toggle('muted');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'mute',
+                    channel: channel,
+                    value: isMuted ? 0 : 1
+                }));
             }
-        } catch (error) {
-            console.error('Fehler beim Abspielen des Gongs:', error);
-        }
+        });
     });
 }
 
